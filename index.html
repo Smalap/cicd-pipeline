@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD Pipeline - Project 3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    padding: 48px 56px;
+    text-align: center;
+    max-width: 640px;
+    backdrop-filter: blur(10px);
+  }
+  h1 { font-size: 2.2rem; margin-bottom: 8px; }
+  .version {
+    display: inline-block;
+    background: #22c55e;
+    color: #06280f;
+    font-weight: bold;
+    padding: 6px 18px;
+    border-radius: 999px;
+    margin: 16px 0;
+    font-size: 1.1rem;
+  }
+  p { color: #cbd5e1; line-height: 1.6; }
+  .flow {
+    margin-top: 28px;
+    font-size: 0.95rem;
+    color: #93c5fd;
+    letter-spacing: 0.5px;
+  }
+  .footer { margin-top: 24px; font-size: 0.8rem; color: #64748b; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 CI/CD Pipeline on AWS</h1>
+    <div class="version">Version 1.0</div>
+    <p>This page was deployed automatically — no manual uploads.<br>
+    Every <b>git push</b> triggers the pipeline and updates this server.</p>
+    <div class="flow">GitHub → CodePipeline → CodeBuild → CodeDeploy → EC2</div>
+    <div class="footer">Project 3 · Deployed by AWS CodeDeploy · by Shivam</div>
+  </div>
+</body>
+</html>

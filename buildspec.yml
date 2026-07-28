@@ -1,0 +1,20 @@
+version: 0.2
+
+# CodeBuild instructions: "build & test" the site, then package everything
+# as the artifact that CodeDeploy will receive.
+
+phases:
+  build:
+    commands:
+      - echo "Build started on $(date)"
+      - echo "Running basic test - checking required files exist..."
+      - test -f index.html
+      - test -f appspec.yml
+      - echo "All required files present. Test passed!"
+  post_build:
+    commands:
+      - echo "Build completed on $(date)"
+
+artifacts:
+  files:
+    - '**/*'

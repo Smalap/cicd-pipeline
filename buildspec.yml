@@ -1,20 +1,81 @@
 version: 0.2
 
-# CodeBuild instructions: "build & test" the site, then package everything
-# as the artifact that CodeDeploy will receive.
+# CodeBuild does three things:
+#   1. Test  - verify required files exist
+#   2. Build - upload the site to an S3 staging bucket
+#   3. Deploy - use SSM Run Command to make EC2 pull the site and restart Apache
+#
+# Requires two environment variables set on the CodeBuild project:
+#   DEPLOY_BUCKET  = your S3 bucket name
+#   EC2_TAG_NAME   = CICD-WebServer
 
 phases:
+  pre_build:
+    commands:
+      - echo "===== TEST STAGE ====="
+      - test -f index.html
+      - echo "index.html found - test passed"
+      - echo "Using bucket $DEPLOY_BUCKET and EC2 tag $EC2_TAG_NAME"
+
   build:
     commands:
-      - echo "Build started on $(date)"
-      - echo "Running basic test - checking required files exist..."
-      - test -f index.html
-      - test -f appspec.yml
-      - echo "All required files present. Test passed!"
+      - echo "===== BUILD STAGE ====="
+      - aws s3 sync . s3://$DEPLOY_BUCKET/site/ --delete --exclude ".git/*" --exclude "scripts/*" --exclude "*.yml" --exclude "*.md" --exclude ".gitattributes" --exclude "*.txt" --exclude "*.json"
+      - echo "Site uploaded to S3"
+
   post_build:
     commands:
-      - echo "Build completed on $(date)"
+      - echo "===== DEPLOY STAGE ====="
+      - |
+        INSTANCE_ID=$(aws ec2 describe-instances \
+          --filters "Name=tag:Name,Values=$EC2_TAG_NAME" "Name=instance-state-name,Values=running" \
+          --query "Reservations[0].Instances[0].InstanceId" --output text)
+        echo "Target instance: $INSTANCE_ID"
+        if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
+          echo "ERROR: no running instance with tag Name=$EC2_TAG_NAME"
+          exit 1
+        fi
+      - |
+        cat > /tmp/ssm-params.json <<EOF
+        {
+          "commands": [
+            "set -e",
+            "dnf install -y httpd",
+            "systemctl enable --now httpd",
+            "aws s3 sync s3://$DEPLOY_BUCKET/site/ /var/www/html/ --delete",
+            "systemctl restart httpd",
+            "echo Deployment complete"
+          ]
+        }
+        EOF
+        CMD_ID=$(aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --instance-ids "$INSTANCE_ID" \
+          --comment "Deploy from CodeBuild" \
+          --parameters file:///tmp/ssm-params.json \
+          --query "Command.CommandId" --output text)
+        echo "SSM command sent: $CMD_ID"
+        STATUS="Pending"
+        for i in $(seq 1 30); do
+          sleep 10
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || echo Pending)
+          echo "Deploy status: $STATUS"
+          case "$STATUS" in
+            Success) break ;;
+            Failed|TimedOut|Cancelled)
+              echo "----- deploy error output -----"
+              aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query StandardErrorContent --output text
+              exit 1 ;;
+          esac
+        done
+        if [ "$STATUS" != "Success" ]; then
+          echo "ERROR: deployment did not succeed in time"
+          exit 1
+        fi
+        echo "----- deploy output -----"
+        aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query StandardOutputContent --output text
+        echo "DEPLOYMENT SUCCESSFUL"
 
 artifacts:
   files:
-    - '**/*'
+    - index.html

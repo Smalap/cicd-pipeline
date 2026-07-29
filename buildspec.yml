@@ -42,7 +42,7 @@ phases:
             "set -e",
             "dnf install -y httpd",
             "systemctl enable --now httpd",
-            "aws s3 sync s3://$DEPLOY_BUCKET/site/ /var/www/html/ --delete",
+            "aws s3 sync s3://$DEPLOY_BUCKET/site/ /var/www/html/ --delete --exact-timestamps",
             "systemctl restart httpd",
             "echo Deployment complete"
           ]
